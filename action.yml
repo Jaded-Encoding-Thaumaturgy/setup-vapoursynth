@@ -1,0 +1,87 @@
+name: Set up VapourSynth
+description: Build and install VapourSynth
+author: Jaded-Encoding-Thaumaturgy
+
+inputs:
+  vapoursynth-version:
+    description: VapourSynth version
+    required: true
+
+  python-version:
+    description: Python version
+    required: false
+    default: "3.14"
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout zimg
+      uses: actions/checkout@v5
+      with:
+        repository: sekrit-twc/zimg
+        path: zimg
+        submodules: recursive
+
+    - name: Checkout VapourSynth
+      uses: actions/checkout@v5
+      with:
+        repository: vapoursynth/vapoursynth
+        ref: R${{ inputs.vapoursynth-version }}
+        path: vapoursynth
+
+    - name: Set up ccache
+      uses: hendrikmuhs/ccache-action@v1.2
+      with:
+        key: vapoursynth-${{ inputs.vapoursynth-version }}
+        restore-keys: |
+          vapoursynth-${{ inputs.vapoursynth-version }}
+        append-timestamp: false
+
+    - name: Install zimg
+      env:
+        CC: ccache gcc
+        CXX: ccache g++
+      shell: bash
+      run: |
+        pushd zimg
+        ./autogen.sh
+        ./configure --prefix=/usr
+        make -j$(nproc)
+        sudo make install -j$(nproc)
+        popd
+        rm -rf zimg
+
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install Python dependencies
+      shell: bash
+      run: pip install -U pip build cython setuptools wheel
+
+    - name: Install VapourSynth
+      env:
+        CC: ccache gcc
+        CXX: ccache g++
+      shell: bash
+      run: |
+        pushd vapoursynth
+        ./autogen.sh
+        ./configure --prefix=/usr
+        make -j$(nproc)
+        sudo make install -j$(nproc)
+        sudo mkdir -p /usr/lib/vapoursynth
+        python setup.py sdist -d sdist
+        mkdir empty
+        pushd empty
+        pip install vapoursynth --no-index --find-links ../sdist --no-build-isolation
+        popd
+        popd
+        rm -rf vapoursynth
+
+    - name: Verify VapourSynth install
+      shell: python
+      run: |
+        import vapoursynth
+        print(vapoursynth.core)
