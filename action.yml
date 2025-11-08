@@ -29,18 +29,28 @@ runs:
         ref: R${{ inputs.vapoursynth-version }}
         path: vapoursynth
 
-    - name: Set up ccache
-      uses: hendrikmuhs/ccache-action@v1.2
+    - name: Restore zimg build cache
+      id: zimg-cache
+      uses: actions/cache/restore@v4
       with:
-        key: vapoursynth-${{ inputs.vapoursynth-version }}
+        path: zimg
+        key: zimg-build-${{ hashFiles('zimg/configure.ac','zimg/Makefile.am') }}
         restore-keys: |
-          vapoursynth-${{ inputs.vapoursynth-version }}
-        append-timestamp: false
+          zimg-build-
+
+    - name: Restore VapourSynth build cache
+      id: vapoursynth-cache
+      uses: actions/cache/restore@v4
+      with:
+        path: vapoursynth
+        key: vapoursynth-build-${{ inputs.vapoursynth-version }}-${{ hashFiles('vapoursynth/setup.py','vapoursynth/configure.ac') }}
+        restore-keys: |
+          vapoursynth-build-
 
     - name: Install zimg
       env:
-        CC: ccache gcc
-        CXX: ccache g++
+        CC: gcc-14
+        CXX: g++-14
       shell: bash
       run: |
         pushd zimg
@@ -49,7 +59,6 @@ runs:
         make -j$(nproc)
         sudo make install -j$(nproc)
         popd
-        rm -rf zimg
 
     - name: Set up Python
       uses: actions/setup-python@v6
@@ -62,8 +71,8 @@ runs:
 
     - name: Install VapourSynth
       env:
-        CC: ccache gcc
-        CXX: ccache g++
+        CC: gcc-14
+        CXX: g++-14
       shell: bash
       run: |
         pushd vapoursynth
@@ -73,11 +82,30 @@ runs:
         sudo make install -j$(nproc)
         sudo mkdir -p /usr/lib/vapoursynth
         python setup.py sdist -d sdist
-        mkdir empty
+        mkdir -p empty
         pushd empty
         pip install vapoursynth --no-index --find-links ../sdist --no-build-isolation
         popd
         popd
+
+    - name: Save zimg build cache
+      if: steps.zimg-cache.cache-hit == 'false'
+      uses: actions/cache/save@v4
+      with:
+        key: zimg-build-${{ hashFiles('zimg/configure.ac','zimg/Makefile.am') }}
+        path: zimg
+
+    - name: Save VapourSynth build cache
+      if: steps.vapoursynth-cache.cache-hit == 'false'
+      uses: actions/cache/save@v4
+      with:
+        key: vapoursynth-build-${{ inputs.vapoursynth-version }}-${{ hashFiles('vapoursynth/setup.py','vapoursynth/configure.ac') }}
+        path: vapoursynth
+
+    - name: Remove hashFiles
+      shell: bash
+      run: |
+        rm -rf zimg
         rm -rf vapoursynth
 
     - name: Verify VapourSynth install
