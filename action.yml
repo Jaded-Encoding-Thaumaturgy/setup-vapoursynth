@@ -16,14 +16,14 @@ runs:
   using: composite
   steps:
     - name: Checkout zimg
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
       with:
         repository: sekrit-twc/zimg
         path: zimg
         submodules: recursive
 
     - name: Checkout VapourSynth
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
       with:
         repository: vapoursynth/vapoursynth
         ref: R${{ inputs.vapoursynth-version }}
