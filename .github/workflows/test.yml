@@ -12,7 +12,7 @@ jobs:
 
     strategy:
       matrix:
-        vapoursynth-version: [69, 70, 71, 72]
+        vapoursynth-version: [69, 70, 71, 72, 73]
         python-version: ["3.12", "3.13", "3.14"]
         meson: [true, false]
 
