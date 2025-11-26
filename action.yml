@@ -12,6 +12,11 @@ inputs:
     required: false
     default: "3.14"
 
+  meson:
+    description: Compile R73 and above with meson instead of autotools
+    required: false
+    default: "true"
+
 runs:
   using: composite
   steps:
@@ -37,13 +42,30 @@ runs:
         key: zimg-build-${{ hashFiles('zimg/configure.ac','zimg/Makefile.am') }}
         restore-keys: zimg-build-
 
+    - name: Determine meson mode
+      id: meson-mode
+      shell: bash
+      run: |
+        if [[ -f vapoursynth/meson.build && "${{ inputs.meson }}" == "true" ]]; then
+          echo "res=true" >> $GITHUB_OUTPUT
+        else
+          echo "res=false" >> $GITHUB_OUTPUT
+        fi
+
     - name: Restore VapourSynth build cache
       id: vs-build-cache
       uses: actions/cache/restore@v4
       with:
-        path: vapoursynth
-        key: vapoursynth-build-${{ inputs.vapoursynth-version }}-${{ hashFiles('vapoursynth/configure.ac','vapoursynth/Makefile.am','vapoursynth/setup.py') }}
+        key: >-
+              vapoursynth-build-${{ inputs.vapoursynth-version }}-${{
+              steps.meson-mode.outputs.res == 'true' &&
+              hashFiles('vapoursynth/meson.build','vapoursynth/meson_options.txt','vapoursynth/setup.py') ||
+              hashFiles('vapoursynth/configure.ac','vapoursynth/Makefile.am','vapoursynth/setup.py')
+              }}
         restore-keys: vapoursynth-build-
+        path: |
+          vapoursynth
+          vapoursynth/build
 
     - name: Restore VapourSynth wheel cache
       id: vs-wheel-cache
@@ -73,9 +95,10 @@ runs:
 
     - name: Install Python build deps
       shell: bash
-      run: pip install -U pip build cython setuptools wheel
+      run: pip install -U pip build cython setuptools wheel meson ninja
 
-    - name: Build & Install VapourSynth C library
+    - name: Build & Install VapourSynth C library (autotools)
+      if: ${{ steps.meson-mode.outputs.res != 'true' }}
       env:
         CC: gcc-14
         CXX: g++-14
@@ -88,11 +111,24 @@ runs:
         sudo make install -j$(nproc)
         popd
 
+    - name: Build & Install VapourSynth C library (meson)
+      if: ${{ steps.meson-mode.outputs.res == 'true' }}
+      env:
+        CC: gcc-14
+        CXX: g++-14
+      shell: bash
+      run: |
+        pushd vapoursynth
+        meson setup build
+        ninja -C build
+        sudo ninja -C build install
+        sudo ldconfig
+        popd
+
     - name: Build VapourSynth wheel (if missing)
       if: steps.vs-wheel-cache.outputs.cache-hit != 'true'
       shell: bash
-      run: |
-        pip wheel vapoursynth -w ~/.cache/pip/wheels
+      run: pip wheel vapoursynth -w ~/.cache/pip/wheels
 
     - name: Save zimg build cache
       if: steps.zimg-cache.outputs.cache-hit != 'true'
@@ -105,8 +141,14 @@ runs:
       if: steps.vs-build-cache.outputs.cache-hit != 'true'
       uses: actions/cache/save@v4
       with:
-        key: vapoursynth-build-${{ inputs.vapoursynth-version }}-${{ hashFiles('vapoursynth/configure.ac','vapoursynth/Makefile.am','vapoursynth/setup.py') }}
-        path: vapoursynth
+        key: >-
+          vapoursynth-build-${{ inputs.vapoursynth-version }}-${{
+            steps.meson-mode.outputs.res == 'true' &&
+            hashFiles('vapoursynth/meson.build','vapoursynth/meson_options.txt','vapoursynth/setup.py') ||
+            hashFiles('vapoursynth/configure.ac','vapoursynth/Makefile.am','vapoursynth/setup.py') }}
+        path: |
+          vapoursynth
+          vapoursynth/build
 
     - name: Save VapourSynth wheel cache
       if: steps.vs-wheel-cache.outputs.cache-hit != 'true'
@@ -119,7 +161,7 @@ runs:
       shell: bash
       run: pip install vapoursynth --no-index --find-links ~/.cache/pip/wheels
 
-    - name: Remove hashFiles
+    - name: Cleanup checked-out sources
       shell: bash
       run: |
         rm -rf zimg

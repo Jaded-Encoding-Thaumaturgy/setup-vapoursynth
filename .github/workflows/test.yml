@@ -14,6 +14,7 @@ jobs:
       matrix:
         vapoursynth-version: [69, 70, 71, 72]
         python-version: ["3.12", "3.13", "3.14"]
+        meson: [true, false]
 
     steps:
       - name: Checkout repository
@@ -24,6 +25,7 @@ jobs:
         with:
           vapoursynth-version: ${{ matrix.vapoursynth-version }}
           python-version: ${{ matrix.python-version }}
+          meson: ${{ matrix.meson }}
 
       - name: Verify VapourSynth installation
         shell: python
