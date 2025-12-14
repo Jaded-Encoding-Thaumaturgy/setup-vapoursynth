@@ -54,7 +54,7 @@ runs:
 
     - name: Restore zimg build cache
       id: zimg-cache
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       with:
         path: zimg
         key: zimg-build-${{ hashFiles('zimg/configure.ac','zimg/Makefile.am') }}
@@ -63,7 +63,7 @@ runs:
     - name: Restore VapourSynth build cache
       if: steps.meson-mode.outputs.res != 'true'
       id: vs-build-cache
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       with:
         key: >-
               vapoursynth-build-${{ inputs.vapoursynth-version }}
@@ -74,7 +74,7 @@ runs:
 
     - name: Restore VapourSynth wheel cache
       id: vs-wheel-cache
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       with:
         path: ~/.cache/pip/wheels
         key: vs-wheels-${{ inputs.vapoursynth-version }}-${{ inputs.python-version }}
@@ -137,14 +137,14 @@ runs:
 
     - name: Save zimg build cache
       if: steps.zimg-cache.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5
       with:
         key: zimg-build-${{ hashFiles('zimg/configure.ac','zimg/Makefile.am') }}
         path: zimg
 
     - name: Save VapourSynth build cache
       if: steps.meson-mode.outputs.res == 'false' && steps.vs-build-cache.outputs.cache-hit == 'false'
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5
       with:
         key: >-
           vapoursynth-build-${{ inputs.vapoursynth-version }}
@@ -154,7 +154,7 @@ runs:
 
     - name: Save VapourSynth wheel cache
       if: steps.vs-wheel-cache.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5
       with:
         key: vs-wheels-${{ inputs.vapoursynth-version }}-${{ inputs.python-version }}
         path: ~/.cache/pip/wheels
